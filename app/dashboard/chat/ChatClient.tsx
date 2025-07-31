@@ -1,18 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, Suspense } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send } from "lucide-react";
-import { MessageSkeleton, StreamingMessage } from "./AsyncMessageLoader";
+import { StreamingMessage } from "./AsyncMessageLoader";
 
 interface Message {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
-  isPending?: boolean;
-  pendingId?: string; // To track which pending message this corresponds to
   metadata?: {
     sqlQuery: string;
     rowCount: number;
@@ -25,16 +23,17 @@ interface ChatMessage {
   content: string;
 }
 
+interface PendingMessage {
+  id: string;
+  messages: ChatMessage[];
+}
+
+// Message bubble component for displaying chat messages
 function MessageBubble({ message }: { message: Message }) {
-  // Debug log to check if metadata is present
-  if (message.role === 'assistant') {
-    console.log('MessageBubble - Assistant message metadata:', message.metadata);
-  }
-  
   return (
     <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className="flex flex-col gap-2 max-w-[70%]">
-        {/* Show metadata for assistant messages if available */}
+        {/* SQL query metadata for assistant messages */}
         {message.role === 'assistant' && message.metadata && (
           <div className="flex justify-start">
             <div className="rounded-lg px-3 py-2 bg-blue-50 border border-blue-200">
@@ -64,27 +63,14 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
-// Component that demonstrates Suspense with streaming
-function StreamingMessageWrapper({ 
-  messages, 
-  onComplete 
-}: { 
-  messages: ChatMessage[]; 
-  onComplete: (response: string, metadata?: { sqlQuery: string; rowCount: number; executionTime: number }) => void;
-}) {
-  return (
-    <Suspense fallback={<MessageSkeleton />}>
-      <StreamingMessage messages={messages} onComplete={onComplete} />
-    </Suspense>
-  );
-}
-
+// Main chat interface component
 export function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [pendingMessages, setPendingMessages] = useState<{ id: string; messages: ChatMessage[] }[]>([]);
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -93,7 +79,7 @@ export function ChatClient() {
     scrollToBottom();
   }, [messages, pendingMessages]);
 
-  // Convert messages to the format expected by the API
+  // Convert UI messages to API format
   const getApiMessages = (includeNewMessage?: string): ChatMessage[] => {
     const apiMessages: ChatMessage[] = messages.map(msg => ({
       role: msg.role,
@@ -110,6 +96,7 @@ export function ChatClient() {
     return apiMessages;
   };
 
+  // Handle sending a new message
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -123,18 +110,18 @@ export function ChatClient() {
     const pendingId = `pending-${Date.now()}`;
     const apiMessages = getApiMessages(input.trim());
 
+    // Add user message and create pending streaming message
     setMessages(prev => [...prev, userMessage]);
     setPendingMessages(prev => [...prev, { id: pendingId, messages: apiMessages }]);
     setInput("");
   };
 
+  // Handle completion of streaming response
   const handleResponseComplete = (
     pendingId: string, 
     response: string, 
     metadata?: { sqlQuery: string; rowCount: number; executionTime: number }
   ) => {
-    console.log('Response complete - metadata:', metadata); // Debug log
-    
     const responseMessage: Message = {
       id: `response-${Date.now()}`,
       role: 'assistant',
@@ -143,12 +130,12 @@ export function ChatClient() {
       metadata
     };
 
-    console.log('Created response message:', responseMessage); // Debug log
-
+    // Add completed message and remove pending message
     setMessages(prev => [...prev, responseMessage]);
     setPendingMessages(prev => prev.filter(msg => msg.id !== pendingId));
   };
 
+  // Handle Enter key press to send message
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -160,23 +147,26 @@ export function ChatClient() {
     <div className="flex flex-col h-full">
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Empty state */}
         {messages.length === 0 && pendingMessages.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
-            <p>Start a conversation about your spreadsheet data</p>
-            <p className="text-xs mt-2">Try asking: "What are the sales trends?" or "Show me the data summary"</p>
-            <p className="text-xs mt-2 text-blue-600">💡 Messages will stream from the real API with SQL queries</p>
-            <p className="text-xs mt-1 text-gray-500">File ID: 4f39cd3d-0601-44b7-be29-0379740c7154</p>
+            <p className="text-lg mb-2">Chat with your spreadsheet data</p>
+            <p className="text-sm mb-4">Ask questions and get insights from your uploaded file</p>
+            <div className="text-xs space-y-1">
+              <p>💡 Try: "What are the sales trends?" or "Show me the top customers"</p>
+              <p className="text-gray-500">File ID: 4f39cd3d-0601-44b7-be29-0379740c7154</p>
+            </div>
           </div>
         )}
         
-        {/* Display all messages in order */}
+        {/* Completed messages */}
         {messages.map((message) => (
           <MessageBubble key={message.id} message={message} />
         ))}
         
-        {/* Display streaming messages in order */}
+        {/* Streaming messages */}
         {pendingMessages.map((pendingMsg) => (
-          <StreamingMessageWrapper 
+          <StreamingMessage 
             key={pendingMsg.id} 
             messages={pendingMsg.messages}
             onComplete={(response, metadata) => handleResponseComplete(pendingMsg.id, response, metadata)}
@@ -204,13 +194,6 @@ export function ChatClient() {
           >
             <Send className="h-4 w-4" />
           </Button>
-        </div>
-        
-        {/* Debug info */}
-        <div className="mt-2 text-xs text-gray-500">
-          {messages.length > 0 && (
-            <p>Conversation: {messages.length} messages total</p>
-          )}
         </div>
       </div>
     </div>

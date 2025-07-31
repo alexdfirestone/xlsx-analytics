@@ -65,7 +65,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 }
 
-// Error boundary wrapper for Suspense
+// Error boundary wrapper component
 export function SuspenseErrorBoundary({ children }: { children: ReactNode }) {
   return (
     <ErrorBoundary>
