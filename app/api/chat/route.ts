@@ -162,17 +162,15 @@ Generate ONLY a valid SQL SELECT query. Do not include any explanations or markd
     console.log(`Query executed successfully in ${executionTime}ms. Returned ${rows.length} rows.`);
 
     // Generate streaming response using LLM
-    const responsePrompt = `You are a helpful data analyst. Based on the SQL query results below, provide a clear and insightful analysis of the data. Be conversational and explain what the data shows in plain language.
+    const responsePrompt = `You are a master data analyst with 20+ years of experience. Analyze the query results below and provide a direct, actionable response. Cut through the noise and focus on what matters.
 
-SQL Query: ${cleanSqlQuery}
-Results: ${rows.length} rows returned
+Query: ${cleanSqlQuery}
+Rows: ${rows.length}
 
 Data:
 ${JSON.stringify(rows.slice(0, 100), null, 2)} ${rows.length > 100 ? '\n... (showing first 100 rows)' : ''}
 
-IMPORTANT: Respond in plain text only. Do not use any markdown formatting, bullet points, or special characters. Write in a natural, conversational tone as if speaking to a colleague.
-
-Provide a natural language explanation of these results:`;
+Give me the key findings. Be conversational but concise. No fluff, no obvious statements. What insights should I act on? Respond in plain text only - no markdown or formatting.`;
 
     console.log('Generating streaming response...');
 

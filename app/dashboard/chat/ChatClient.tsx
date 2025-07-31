@@ -3,8 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send } from "lucide-react";
+import { Send, RotateCcw, Info } from "lucide-react";
 import { StreamingMessage } from "./AsyncMessageLoader";
+import { useFileMetadata } from "./hooks/useFileMetadata";
+import { FileMetadataDisplay } from "./FileMetadataDisplay";
 
 interface Message {
   id: string;
@@ -63,12 +65,18 @@ function MessageBubble({ message }: { message: Message }) {
   );
 }
 
+interface ChatClientProps {
+  fileId: string | null;
+}
+
 // Main chat interface component
-export function ChatClient() {
+export function ChatClient({ fileId }: ChatClientProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
+  const [showMetadata, setShowMetadata] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { metadata, loading: metadataLoading, error: metadataError, fetchMetadata } = useFileMetadata();
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -143,19 +151,114 @@ export function ChatClient() {
     }
   };
 
+  // Handle resetting the chat
+  const handleReset = () => {
+    setMessages([]);
+    setPendingMessages([]);
+    setInput("");
+    setShowMetadata(false);
+  };
+
+  // Handle showing file metadata
+  const handleShowMetadata = async () => {
+    if (!fileId) return;
+    
+    if (!metadata) {
+      await fetchMetadata(fileId);
+    }
+    setShowMetadata(true);
+  };
+
   return (
     <div className="flex flex-col h-full">
+      {/* Header with reset button */}
+      {fileId && (messages.length > 0 || pendingMessages.length > 0) && (
+        <div className="border-b p-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-sm font-medium">Chat Session</h3>
+              <p className="text-xs text-muted-foreground">File ID: {fileId}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              New Chat
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Empty state */}
-        {messages.length === 0 && pendingMessages.length === 0 && (
+        {messages.length === 0 && pendingMessages.length === 0 && !showMetadata && (
           <div className="text-center text-muted-foreground py-8">
-            <p className="text-lg mb-2">Chat with your spreadsheet data</p>
-            <p className="text-sm mb-4">Ask questions and get insights from your uploaded file</p>
-            <div className="text-xs space-y-1">
-              <p>💡 Try: "What are the sales trends?" or "Show me the top customers"</p>
-              <p className="text-gray-500">File ID: 4f39cd3d-0601-44b7-be29-0379740c7154</p>
+            {fileId ? (
+              <>
+                <p className="text-lg mb-2">Chat with your spreadsheet data</p>
+                <p className="text-sm mb-4">Ask questions and get insights from your uploaded file</p>
+                <div className="text-xs space-y-3">
+                  <p>💡 Try: "What are the sales trends?" or "Show me the top customers"</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleShowMetadata}
+                    disabled={metadataLoading}
+                    className="gap-2"
+                  >
+                    <Info className="h-4 w-4" />
+                    {metadataLoading ? 'Loading...' : 'Tell me about this file'}
+                  </Button>
+                  <p className="text-gray-500">File ID: {fileId}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-lg mb-2">Select a file to start chatting</p>
+                <p className="text-sm mb-4">Choose a file from the sidebar to analyze your data</p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Metadata display */}
+        {showMetadata && fileId && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">File Information</h3>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setShowMetadata(false)}
+              >
+                Back to Chat
+              </Button>
             </div>
+            
+            {metadataError ? (
+              <div className="text-center text-red-600 py-8">
+                <p className="font-medium">Error loading file information</p>
+                <p className="text-sm mt-1">{metadataError}</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => fetchMetadata(fileId)}
+                  className="mt-3"
+                >
+                  Try Again
+                </Button>
+              </div>
+            ) : metadataLoading ? (
+              <div className="text-center text-muted-foreground py-8">
+                <p>Loading file information...</p>
+              </div>
+            ) : metadata ? (
+              <FileMetadataDisplay metadata={metadata} />
+            ) : null}
           </div>
         )}
         
@@ -183,12 +286,13 @@ export function ChatClient() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask a question about your data..."
+            placeholder={fileId ? "Ask a question about your data..." : "Select a file to start chatting..."}
             className="min-h-[60px] resize-none"
+            disabled={!fileId}
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!input.trim() || !fileId}
             size="icon"
             className="self-end"
           >

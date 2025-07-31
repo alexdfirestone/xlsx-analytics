@@ -8,7 +8,11 @@ import { uploadFileAction } from "@/app/actions/upload-file/uploadFile";
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
-export function UploadClient() {
+interface UploadClientProps {
+  onUploadSuccess?: () => void;
+}
+
+export function UploadClient({ onUploadSuccess }: UploadClientProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [progress, setProgress] = useState(0);
@@ -42,6 +46,7 @@ export function UploadClient() {
       if (result.success) {
         setUploadStatus('success');
         toast.success(`File uploaded successfully! ${result.processingResult?.sheetsProcessed || 0} sheets processed.`);
+        onUploadSuccess?.();
       } else {
         setUploadStatus('error');
         toast.error(result.error || 'Upload failed');
