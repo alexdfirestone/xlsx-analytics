@@ -106,7 +106,7 @@ export function ChatClient({ fileId }: ChatClientProps) {
 
   // Handle sending a new message
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !fileId) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -272,6 +272,7 @@ export function ChatClient({ fileId }: ChatClientProps) {
           <StreamingMessage 
             key={pendingMsg.id} 
             messages={pendingMsg.messages}
+            fileId={fileId || ''}
             onComplete={(response, metadata) => handleResponseComplete(pendingMsg.id, response, metadata)}
           />
         ))}

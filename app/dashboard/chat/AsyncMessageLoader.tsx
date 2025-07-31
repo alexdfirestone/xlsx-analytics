@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
-// Hard-coded file ID for demo purposes
-const DEMO_FILE_ID = "4f39cd3d-0601-44b7-be29-0379740c7154";
-
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -28,6 +25,7 @@ interface QueryMetadata {
 // Call the chat API with streaming response
 async function streamChatResponse(
   messages: ChatMessage[],
+  fileId: string,
   onChunk: (chunk: string) => void,
   onMetadata: (metadata: QueryMetadata) => void
 ): Promise<string> {
@@ -38,7 +36,7 @@ async function streamChatResponse(
     },
     body: JSON.stringify({
       messages,
-      file_id: DEMO_FILE_ID
+      file_id: fileId
     })
   });
 
@@ -117,9 +115,11 @@ export function MessageSkeleton() {
 // Streaming message component that displays real-time responses
 export function StreamingMessage({ 
   messages, 
+  fileId,
   onComplete 
 }: { 
   messages: ChatMessage[]; 
+  fileId: string;
   onComplete?: (response: string, metadata?: QueryMetadata) => void;
 }) {
   const [streamedContent, setStreamedContent] = useState("");
@@ -140,6 +140,7 @@ export function StreamingMessage({
 
         const fullResponse = await streamChatResponse(
           messages,
+          fileId,
           (chunk: string) => {
             if (isMounted) {
               setStreamedContent(prev => prev + chunk);
