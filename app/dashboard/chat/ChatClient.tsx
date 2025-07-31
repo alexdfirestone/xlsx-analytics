@@ -13,6 +13,11 @@ interface Message {
   timestamp: Date;
   isPending?: boolean;
   pendingId?: string; // To track which pending message this corresponds to
+  metadata?: {
+    sqlQuery: string;
+    rowCount: number;
+    executionTime: number;
+  };
 }
 
 interface ChatMessage {
@@ -21,17 +26,39 @@ interface ChatMessage {
 }
 
 function MessageBubble({ message }: { message: Message }) {
+  // Debug log to check if metadata is present
+  if (message.role === 'assistant') {
+    console.log('MessageBubble - Assistant message metadata:', message.metadata);
+  }
+  
   return (
     <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
-        message.role === 'user' 
-          ? 'bg-primary text-primary-foreground' 
-          : 'bg-muted'
-      }`}>
-        <p className="text-sm">{message.content}</p>
-        <p className="text-xs opacity-70 mt-1">
-          {message.timestamp.toLocaleTimeString()}
-        </p>
+      <div className="flex flex-col gap-2 max-w-[70%]">
+        {/* Show metadata for assistant messages if available */}
+        {message.role === 'assistant' && message.metadata && (
+          <div className="flex justify-start">
+            <div className="rounded-lg px-3 py-2 bg-blue-50 border border-blue-200">
+              <p className="text-xs text-blue-700 font-mono">
+                📊 Query: {message.metadata.sqlQuery}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                ⏱️ {message.metadata.executionTime}ms • {message.metadata.rowCount} rows
+              </p>
+            </div>
+          </div>
+        )}
+        
+        {/* Main message content */}
+        <div className={`rounded-lg px-4 py-2 ${
+          message.role === 'user' 
+            ? 'bg-primary text-primary-foreground' 
+            : 'bg-muted'
+        }`}>
+          <p className="text-sm">{message.content}</p>
+          <p className="text-xs opacity-70 mt-1">
+            {message.timestamp.toLocaleTimeString()}
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -43,7 +70,7 @@ function StreamingMessageWrapper({
   onComplete 
 }: { 
   messages: ChatMessage[]; 
-  onComplete: (response: string) => void;
+  onComplete: (response: string, metadata?: { sqlQuery: string; rowCount: number; executionTime: number }) => void;
 }) {
   return (
     <Suspense fallback={<MessageSkeleton />}>
@@ -101,13 +128,22 @@ export function ChatClient() {
     setInput("");
   };
 
-  const handleResponseComplete = (pendingId: string, response: string) => {
+  const handleResponseComplete = (
+    pendingId: string, 
+    response: string, 
+    metadata?: { sqlQuery: string; rowCount: number; executionTime: number }
+  ) => {
+    console.log('Response complete - metadata:', metadata); // Debug log
+    
     const responseMessage: Message = {
       id: `response-${Date.now()}`,
       role: 'assistant',
       content: response,
       timestamp: new Date(),
+      metadata
     };
+
+    console.log('Created response message:', responseMessage); // Debug log
 
     setMessages(prev => [...prev, responseMessage]);
     setPendingMessages(prev => prev.filter(msg => msg.id !== pendingId));
@@ -143,7 +179,7 @@ export function ChatClient() {
           <StreamingMessageWrapper 
             key={pendingMsg.id} 
             messages={pendingMsg.messages}
-            onComplete={(response) => handleResponseComplete(pendingMsg.id, response)}
+            onComplete={(response, metadata) => handleResponseComplete(pendingMsg.id, response, metadata)}
           />
         ))}
         

@@ -162,7 +162,7 @@ export function StreamingMessage({
   onComplete 
 }: { 
   messages: ChatMessage[]; 
-  onComplete?: (response: string) => void;
+  onComplete?: (response: string, metadata?: { sqlQuery: string; rowCount: number; executionTime: number }) => void;
 }) {
   const [streamedContent, setStreamedContent] = useState("");
   const [isComplete, setIsComplete] = useState(false);
@@ -171,6 +171,7 @@ export function StreamingMessage({
 
   useEffect(() => {
     let isMounted = true;
+    let capturedMetadata: { sqlQuery: string; rowCount: number; executionTime: number } | null = null;
     
     const streamResponse = async () => {
       try {
@@ -188,6 +189,7 @@ export function StreamingMessage({
           },
           (meta) => {
             if (isMounted) {
+              capturedMetadata = meta;
               setMetadata(meta);
             }
           }
@@ -196,7 +198,8 @@ export function StreamingMessage({
         if (isMounted) {
           setIsComplete(true);
           if (onComplete) {
-            onComplete(fullResponse);
+            // Use the captured metadata, not the state metadata
+            onComplete(fullResponse, capturedMetadata || undefined);
           }
         }
       } catch (error) {
