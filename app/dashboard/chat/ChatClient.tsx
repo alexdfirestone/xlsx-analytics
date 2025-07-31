@@ -8,18 +8,23 @@ import { MessageSkeleton, StreamingMessage } from "./AsyncMessageLoader";
 
 interface Message {
   id: string;
+  role: 'user' | 'assistant' | 'system';
   content: string;
-  isUser: boolean;
   timestamp: Date;
   isPending?: boolean;
   pendingId?: string; // To track which pending message this corresponds to
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
 function MessageBubble({ message }: { message: Message }) {
   return (
-    <div className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-4`}>
       <div className={`max-w-[70%] rounded-lg px-4 py-2 ${
-        message.isUser 
+        message.role === 'user' 
           ? 'bg-primary text-primary-foreground' 
           : 'bg-muted'
       }`}>
@@ -33,10 +38,16 @@ function MessageBubble({ message }: { message: Message }) {
 }
 
 // Component that demonstrates Suspense with streaming
-function StreamingMessageWrapper({ userMessage, onComplete }: { userMessage: string; onComplete: (response: string) => void }) {
+function StreamingMessageWrapper({ 
+  messages, 
+  onComplete 
+}: { 
+  messages: ChatMessage[]; 
+  onComplete: (response: string) => void;
+}) {
   return (
     <Suspense fallback={<MessageSkeleton />}>
-      <StreamingMessage userMessage={userMessage} onComplete={onComplete} />
+      <StreamingMessage messages={messages} onComplete={onComplete} />
     </Suspense>
   );
 }
@@ -44,7 +55,7 @@ function StreamingMessageWrapper({ userMessage, onComplete }: { userMessage: str
 export function ChatClient() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [pendingMessages, setPendingMessages] = useState<{ id: string; content: string }[]>([]);
+  const [pendingMessages, setPendingMessages] = useState<{ id: string; messages: ChatMessage[] }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -55,28 +66,46 @@ export function ChatClient() {
     scrollToBottom();
   }, [messages, pendingMessages]);
 
+  // Convert messages to the format expected by the API
+  const getApiMessages = (includeNewMessage?: string): ChatMessage[] => {
+    const apiMessages: ChatMessage[] = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+    
+    if (includeNewMessage) {
+      apiMessages.push({
+        role: 'user',
+        content: includeNewMessage
+      });
+    }
+    
+    return apiMessages;
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
+      role: 'user',
       content: input.trim(),
-      isUser: true,
       timestamp: new Date(),
     };
 
     const pendingId = `pending-${Date.now()}`;
+    const apiMessages = getApiMessages(input.trim());
 
     setMessages(prev => [...prev, userMessage]);
-    setPendingMessages(prev => [...prev, { id: pendingId, content: input.trim() }]);
+    setPendingMessages(prev => [...prev, { id: pendingId, messages: apiMessages }]);
     setInput("");
   };
 
   const handleResponseComplete = (pendingId: string, response: string) => {
     const responseMessage: Message = {
       id: `response-${Date.now()}`,
+      role: 'assistant',
       content: response,
-      isUser: false,
       timestamp: new Date(),
     };
 
@@ -99,7 +128,8 @@ export function ChatClient() {
           <div className="text-center text-muted-foreground py-8">
             <p>Start a conversation about your spreadsheet data</p>
             <p className="text-xs mt-2">Try asking: "What are the sales trends?" or "Show me the data summary"</p>
-            <p className="text-xs mt-2 text-blue-600">💡 Messages will stream in word by word (Suspense demo)</p>
+            <p className="text-xs mt-2 text-blue-600">💡 Messages will stream from the real API with SQL queries</p>
+            <p className="text-xs mt-1 text-gray-500">File ID: 4f39cd3d-0601-44b7-be29-0379740c7154</p>
           </div>
         )}
         
@@ -112,7 +142,7 @@ export function ChatClient() {
         {pendingMessages.map((pendingMsg) => (
           <StreamingMessageWrapper 
             key={pendingMsg.id} 
-            userMessage={pendingMsg.content} 
+            messages={pendingMsg.messages}
             onComplete={(response) => handleResponseComplete(pendingMsg.id, response)}
           />
         ))}
@@ -138,6 +168,13 @@ export function ChatClient() {
           >
             <Send className="h-4 w-4" />
           </Button>
+        </div>
+        
+        {/* Debug info */}
+        <div className="mt-2 text-xs text-gray-500">
+          {messages.length > 0 && (
+            <p>Conversation: {messages.length} messages total</p>
+          )}
         </div>
       </div>
     </div>
