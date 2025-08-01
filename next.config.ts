@@ -26,7 +26,19 @@ const nextConfig: NextConfig = {
         '@tailwindcss/oxide-linux-x64-musl',
         '@tailwindcss/oxide-wasm32-wasi',
         '@tailwindcss/oxide-win32-arm64-msvc',
-        '@tailwindcss/oxide-win32-x64-msvc'
+        '@tailwindcss/oxide-win32-x64-msvc',
+        // Externalize LightningCSS platform-specific bindings
+        'lightningcss',
+        'lightningcss-darwin-arm64',
+        'lightningcss-darwin-x64',
+        'lightningcss-freebsd-x64',
+        'lightningcss-linux-arm-gnueabihf',
+        'lightningcss-linux-arm64-gnu',
+        'lightningcss-linux-arm64-musl',
+        'lightningcss-linux-x64-gnu',
+        'lightningcss-linux-x64-musl',
+        'lightningcss-win32-arm64-msvc',
+        'lightningcss-win32-x64-msvc'
       );
     }
 
