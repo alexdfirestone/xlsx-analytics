@@ -20,13 +20,11 @@ interface ChatRequest {
   file_id: string;
 }
 
-interface ChatResponse {
-  success: boolean;
-  error?: string;
-  executionTime?: number;
-  sqlQuery?: string;
-  data?: any[];
-  rowCount?: number;
+// Type for DuckDB connection
+interface DuckDBConnection {
+  run: (sql: string) => Promise<{ getRows: () => Promise<unknown[][]> }>;
+  disconnectSync?: () => void;
+  closeSync?: () => void;
 }
 
 export const dynamic = 'force-dynamic';
@@ -35,9 +33,9 @@ export const maxDuration = 300;
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
   let localDbPath: string | null = null;
-  let duckdbInstance: any = null;
-  let connection: any = null;
-  let metadata: any = null;
+  let duckdbInstance: DuckDBInstance | null = null;
+  let connection: DuckDBConnection | null = null;
+  let metadata: Record<string, unknown> | null = null;
   let body: ChatRequest | null = null;
 
   try {
@@ -87,12 +85,8 @@ export async function POST(request: NextRequest) {
       const metadataContent = await fs.readFile(localMetadataPath, 'utf-8');
       metadata = JSON.parse(metadataContent);
       await cleanupTempFiles(localMetadataPath);
-    } catch (metadataError) {
-      console.warn('Failed to load metadata:', metadataError);
-      return NextResponse.json(
-        { error: 'Failed to load file metadata' },
-        { status: 500 }
-      );
+    } catch {
+      metadata = { error: 'Failed to load metadata file' };
     }
 
     // Define the schema for SQL query generation
@@ -104,10 +98,10 @@ export async function POST(request: NextRequest) {
     const sqlPrompt = `You are a SQL expert. Based on the following database schema and user conversation, generate a SQL query to answer the user's question.
 
 Database Schema:
-${JSON.stringify(metadata.table_schemas, null, 2)}
+${JSON.stringify(metadata?.table_schemas, null, 2)}
 
 Available Tables:
-${metadata.sheets.map((sheet: any) => `- ${sheet.table} (originally "${sheet.original_name}")`).join('\n')}
+${(metadata?.sheets as Array<{table: string; original_name: string}> || []).map((sheet) => `- ${sheet.table} (originally "${sheet.original_name}")`).join('\n')}
 
 User Conversation:
 ${messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
@@ -150,12 +144,12 @@ Generate ONLY a valid SQL SELECT query. Do not include any explanations or markd
     connection = await duckdbInstance.connect();
 
     // Attach the downloaded database
-    await connection.run(`ATTACH '${localDbPath}' AS source_db`);
+    await (connection as DuckDBConnection).run(`ATTACH '${localDbPath}' AS source_db`);
     console.log('Database attached to memory instance');
 
     // Execute the SQL query
     console.log(`Executing query: ${cleanSqlQuery}`);
-    const result = await connection.run(cleanSqlQuery);
+    const result = await (connection as DuckDBConnection).run(cleanSqlQuery);
     const rows = await result.getRows();
 
     const executionTime = Date.now() - startTime;
@@ -241,7 +235,11 @@ Give me the key findings. Be conversational but concise. No fluff, no obvious st
     try {
       if (connection) {
         try {
-          connection.disconnectSync();
+          if (connection.disconnectSync) {
+            connection.disconnectSync();
+          } else if (connection.closeSync) {
+            connection.closeSync();
+          }
         } catch (closeError) {
           console.warn('Connection close error:', closeError);
         }
@@ -264,8 +262,8 @@ Give me the key findings. Be conversational but concise. No fluff, no obvious st
 
 // Keep the GET method for schema inspection
 export async function GET(request: NextRequest) {
-  let metadata: any = null;
-  let fileRecord: any = null;
+  let metadata: Record<string, unknown> | null = null;
+  let fileRecord: unknown = null;
   
   try {
     const { searchParams } = new URL(request.url);
@@ -292,49 +290,49 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if file is ready
-    if (fileRecord.status !== 'completed') {
+    if ((fileRecord as { status: string }).status !== 'completed') {
       return NextResponse.json(
-        { error: `File is not ready. Current status: ${fileRecord.status}` },
+        { error: `File is not ready. Current status: ${(fileRecord as { status: string }).status}` },
         { status: 400 }
       );
     }
 
     // Download and parse metadata file
     try {
-      const dbDir = path.dirname(fileRecord.duckdb_path);
+      const dbDir = path.dirname((fileRecord as { duckdb_path: string }).duckdb_path);
       const metadataStoragePath = path.join(dbDir, 'metadata.json');
       const localMetadataPath = await downloadFileFromStorage(supabase, metadataStoragePath);
       const metadataContent = await fs.readFile(localMetadataPath, 'utf-8');
       metadata = JSON.parse(metadataContent);
       await cleanupTempFiles(localMetadataPath);
-    } catch (metadataError) {
+    } catch {
       metadata = { error: 'Failed to load metadata file' };
     }
 
     // Download and inspect the database
     let localDbPath: string | null = null;
-    let duckdbInstance: any = null;
-    let connection: any = null;
+    let duckdbInstance: DuckDBInstance | null = null;
+    let connection: DuckDBConnection | null = null;
 
     try {
-      localDbPath = await downloadFileFromStorage(supabase, fileRecord.duckdb_path);
+      localDbPath = await downloadFileFromStorage(supabase, (fileRecord as { duckdb_path: string }).duckdb_path);
       
       duckdbInstance = await DuckDBInstance.create(':memory:');
       connection = await duckdbInstance.connect();
       
-      await connection.run(`ATTACH '${localDbPath}' AS source_db`);
+      await (connection as DuckDBConnection).run(`ATTACH '${localDbPath}' AS source_db`);
 
       // Get list of tables that actually exist in the database
-      const tablesResult = await connection.run("SHOW TABLES");
+      const tablesResult = await (connection as DuckDBConnection).run("SHOW TABLES");
       const tables = await tablesResult.getRows();
-      const tableNames = tables.map((row: any) => row[0] as string);
+      const tableNames = tables.map((row: unknown[]) => row[0] as string);
 
       // Get schema information for each table
-      const schemas: Record<string, any[]> = {};
+      const schemas: Record<string, Array<{name: string; type: string}>> = {};
       for (const tableName of tableNames) {
-        const schemaResult = await connection.run(`DESCRIBE ${tableName}`);
+        const schemaResult = await (connection as DuckDBConnection).run(`DESCRIBE ${tableName}`);
         const columns = await schemaResult.getRows();
-        schemas[tableName] = columns.map((row: any) => ({
+        schemas[tableName] = columns.map((row: unknown[]) => ({
           name: row[0] as string,
           type: row[1] as string
         }));
@@ -345,7 +343,7 @@ export async function GET(request: NextRequest) {
         file_id: file_id,
         tables: tableNames,
         schemas: schemas,
-        sheets_processed: fileRecord.sheets_processed,
+        sheets_processed: (fileRecord as { sheets_processed: number }).sheets_processed,
         metadata: metadata
       });
 
@@ -354,7 +352,11 @@ export async function GET(request: NextRequest) {
       try {
         if (connection) {
           try {
-            connection.disconnectSync();
+            if (connection.disconnectSync) {
+              connection.disconnectSync();
+            } else if (connection.closeSync) {
+              connection.closeSync();
+            }
           } catch (closeError) {
             console.warn('Connection close error:', closeError);
           }

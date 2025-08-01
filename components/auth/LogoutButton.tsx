@@ -10,9 +10,10 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { signOut } from "@/app/actions/auth";
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export default function LogoutButton() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 

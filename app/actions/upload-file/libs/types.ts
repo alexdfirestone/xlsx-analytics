@@ -54,5 +54,5 @@ export interface StorageUploadResult {
 
 export interface FileStatusUpdate {
   status: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 } 

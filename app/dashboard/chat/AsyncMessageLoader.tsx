@@ -174,7 +174,7 @@ export function StreamingMessage({
     return () => {
       isMounted = false;
     };
-  }, [messages, onComplete]);
+  }, [messages, fileId, onComplete]);
 
   return (
     <div className="flex flex-col gap-2">

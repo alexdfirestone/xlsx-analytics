@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { DuckDBFileRecord, FileStatusUpdate } from './types';
+import { DuckDBFileRecord } from './types';
 
 /**
  * Get a file record from the duckdb_files table
@@ -29,9 +29,9 @@ export async function updateFileStatus(
   supabase: SupabaseClient,
   fileId: string,
   status: string,
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 ): Promise<void> {
-  const updateData: any = { 
+  const updateData: Record<string, unknown> = { 
     status, 
     updated_at: new Date().toISOString() 
   };

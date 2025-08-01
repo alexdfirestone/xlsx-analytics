@@ -189,7 +189,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-blue-800 mb-4">
-              This project showcases modern full-stack patterns that leverage Vercel's platform capabilities:
+              This project showcases modern full-stack patterns that leverage Vercel&apos;s platform capabilities:
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="space-y-2">
@@ -216,7 +216,7 @@ export default function DashboardPage() {
             <div className="bg-white/70 rounded-lg p-3 mt-4">
               <p className="text-sm text-blue-900">
                 💡 Demonstrates the full power of modern web development with Next.js 15, React 19, 
-                and Vercel's AI SDK working together seamlessly.
+                and Vercel&apos;s AI SDK working together seamlessly.
               </p>
             </div>
           </CardContent>

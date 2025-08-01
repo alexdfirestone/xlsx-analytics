@@ -12,6 +12,7 @@ import {
   cleanupTempFiles
 } from '@/app/actions/upload-file/libs';
 import { DuckDBInstance } from '@duckdb/node-api';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 const BUCKET_NAME = 'uploads';
 
@@ -57,7 +58,7 @@ function generateUniqueFileName(originalName: string): string {
  * Simple verification - download database and try to query it
  */
 async function verifyDatabase(
-  supabase: any,
+  supabase: SupabaseClient,
   sha: string,
   expectedSheets: number
 ): Promise<{
@@ -80,7 +81,7 @@ async function verifyDatabase(
     console.log(`Database downloaded to: ${localDbPath}`);
 
     // Check file size
-    const fs = require('fs').promises;
+    const fs = await import('fs/promises');
     const downloadedStats = await fs.stat(localDbPath);
     console.log(`Downloaded file size: ${downloadedStats.size} bytes`);
     
@@ -96,7 +97,7 @@ async function verifyDatabase(
     // Get table list
     const tablesResult = await connection.run("SHOW TABLES");
     const tables = await tablesResult.getRows();
-    const tableNames = tables.map((row: any) => row[0] as string);
+    const tableNames = tables.map((row: unknown[]) => row[0] as string);
     console.log(`Tables found: ${tableNames.length}, Expected: ${expectedSheets}`);
 
     // Get table information
@@ -112,7 +113,7 @@ async function verifyDatabase(
         // Get column information
         const columnsResult = await connection.run(`DESCRIBE ${tableName}`);
         const columnsData = await columnsResult.getRows();
-        const columns = columnsData.map((row: any) => row[0] as string);
+        const columns = columnsData.map((row: unknown[]) => row[0] as string);
         
         console.log(`Table ${tableName}: ${rowCount} rows`);
         
@@ -147,16 +148,20 @@ async function verifyDatabase(
 
   } catch (error) {
     console.error('Database verification failed:', error);
-    
     return {
       success: false,
       tables: [],
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   } finally {
-    // Clean up
+    // Clean up downloaded file
     if (localDbPath) {
-      await cleanupTempFiles(localDbPath);
+      try {
+        const fs = await import('fs/promises');
+        await fs.unlink(localDbPath);
+      } catch (cleanupError) {
+        console.error('Error cleaning up downloaded file:', cleanupError);
+      }
     }
   }
 }
@@ -222,7 +227,7 @@ export async function uploadFileAction(formData: FormData): Promise<UploadResult
 
     try {
       // Upload file to Supabase storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
         .upload(storagePath, file, { 
           upsert: false,
@@ -251,7 +256,7 @@ export async function uploadFileAction(formData: FormData): Promise<UploadResult
         updated_at: new Date().toISOString()
       };
 
-      const { data: duckdbInsertData, error: duckdbInsertError } = await supabase
+      const { error: duckdbInsertError } = await supabase
         .from('duckdb_files')
         .insert(duckdbRecord)
         .select('*')
@@ -272,7 +277,7 @@ export async function uploadFileAction(formData: FormData): Promise<UploadResult
       localFilePath = await downloadFileFromStorage(supabase, storagePath);
 
       // Process the Excel file
-      const { sha: processedSha, dbFile, metadata, sheetsProcessed } = await processExcelFile(
+      const { dbFile, sheetsProcessed } = await processExcelFile(
         localFilePath, 
         fileId
       );

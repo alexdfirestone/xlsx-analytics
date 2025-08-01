@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['@duckdb/node-api'],
-  },
+  serverExternalPackages: ['@duckdb/node-api'],
   webpack: (config, { isServer }) => {
     if (isServer) {
       // Externalize DuckDB and all its platform-specific bindings

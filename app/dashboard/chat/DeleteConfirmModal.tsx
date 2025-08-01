@@ -46,7 +46,7 @@ export function DeleteConfirmModal({
         <div className="py-4">
           <p className="text-sm text-muted-foreground">
             Are you sure you want to delete{" "}
-            <span className="font-medium text-foreground">"{fileName}"</span>?
+            <span className="font-medium text-foreground">&quot;{fileName}&quot;</span>?
             This will permanently remove the file and all associated data.
           </p>
         </div>

@@ -202,7 +202,7 @@ export function ChatClient({ fileId }: ChatClientProps) {
                 <p className="text-lg mb-2">Chat with your spreadsheet data</p>
                 <p className="text-sm mb-4">Ask questions and get insights from your uploaded file</p>
                 <div className="text-xs space-y-3">
-                  <p>💡 Try: "What are the sales trends?" or "Show me the top customers"</p>
+                  <p>💡 Try: &quot;What are the sales trends?&quot; or &quot;Show me the top customers&quot;</p>
                   <Button 
                     variant="outline" 
                     size="sm" 

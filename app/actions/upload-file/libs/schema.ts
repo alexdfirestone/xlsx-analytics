@@ -28,7 +28,7 @@ export function sanitizeColumnName(columnName: string): string {
  */
 export async function generateTableSchema(
   tableName: string, 
-  sampleData: any[], 
+  sampleData: Record<string, unknown>[], 
   sanitizedColumns: string[]
 ): Promise<string> {
   if (!sampleData?.length) {

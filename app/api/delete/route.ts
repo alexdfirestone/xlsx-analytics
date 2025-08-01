@@ -18,6 +18,7 @@ interface DeleteResponse {
 }
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
@@ -44,7 +45,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sha = fileRecord.sha_hash;
     // Extract folder path from the duckdb_path (e.g., "tenant123/duckdb/abc123/database.duckdb" -> "tenant123/duckdb/abc123/")
     const folderPath = fileRecord.duckdb_path.substring(0, fileRecord.duckdb_path.lastIndexOf('/') + 1);
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       const deletedFiles: string[] = [];
       
       if (fileList && fileList.length > 0) {
-        const filePaths = fileList.map((file: any) => `${folderPath}${file.name}`);
+        const filePaths = fileList.map((file: {name: string}) => `${folderPath}${file.name}`);
         
         const { error: deleteFilesError } = await supabase.storage
           .from(BUCKET_NAME)

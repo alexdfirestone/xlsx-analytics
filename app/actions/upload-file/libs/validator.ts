@@ -1,6 +1,4 @@
 import { DuckDBInstance } from '@duckdb/node-api';
-import fs from 'node:fs/promises';
-import path from 'node:path';
 import { createClient } from '@/utils/supabase/server';
 import { downloadFileFromStorage } from './storage';
 
@@ -63,7 +61,7 @@ export async function validateDatabase(
 
   try {
     // Download database from storage
-    const supabase = createClient();
+    const supabase = await createClient();
     const storagePath = `${tenantId}/duckdb/${workbookId}/${workbookId}.duckdb`;
     console.log(`Downloading database for validation from: ${storagePath}`);
     

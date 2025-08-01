@@ -6,8 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { 
   ProcessedExcelResult, 
-  ExcelMetadata, 
-  SheetInfo 
+  ExcelMetadata
 } from './types';
 import { 
   sanitizeColumnName, 
@@ -40,8 +39,8 @@ export async function processExcelFile(
   const wb = XLSX.read(fileBuffer, { type: 'buffer' });
   console.log(`Excel file parsed successfully, found ${wb.SheetNames.length} sheets`);
 
-  const instance: any = await DuckDBInstance.create(dbFile);
-  const connection: any = await instance.connect();
+  const instance = await DuckDBInstance.create(dbFile);
+  const connection = await instance.connect();
 
   // Verify expected number of tables before creation
   const expectedTables = wb.SheetNames.length;
@@ -108,7 +107,7 @@ export async function processExcelFile(
     let insertedRows = 0;
     console.log(`📝 Sample data from first 3 rows:`);
     for (let i = 0; i < Math.min(3, rows.length); i++) {
-      const row = rows[i] as Record<string, any>;
+      const row = rows[i] as Record<string, unknown>;
       const values = cols.map(c => {
         const originalCol = colMapping[c];
         const value = row[originalCol];
@@ -117,7 +116,7 @@ export async function processExcelFile(
       console.log(`  Row ${i + 1}: ${JSON.stringify(values)}`);
     }
     
-    for (const row of (rows as Record<string, any>[])) {
+    for (const row of (rows as Record<string, unknown>[])) {
       const values = cols.map((c: string) => {
         const originalCol = colMapping[c];
         const value = row[originalCol];
@@ -147,7 +146,7 @@ export async function processExcelFile(
   // Verify number of tables created
   const tablesResult = await connection.run("SHOW TABLES");
   const tablesData = await tablesResult.getRows();
-  const actualTableNames = tablesData.map((row: any) => row[0] as string);
+  const actualTableNames = tablesData.map((row: unknown[]) => row[0] as string);
   const tableCount = actualTableNames.length;
   
   console.log(`🔍 Tables found in database: ${actualTableNames.join(', ')}`);
@@ -165,7 +164,7 @@ export async function processExcelFile(
   try {
     await connection.run("COMMIT");
     console.log('✅ Committed all transactions');
-  } catch (commitError) {
+  } catch {
     console.log('ℹ️ No pending transactions to commit');
   }
   
@@ -194,8 +193,8 @@ export async function processExcelFile(
   
   // 4. Close the instance to release file handles
   try {
-    if (instance && typeof instance.close === 'function') {
-      await instance.close();
+    if (instance && typeof instance.closeSync === 'function') {
+      instance.closeSync();
       console.log('✅ DuckDB instance closed');
     } else {
       console.log('ℹ️ Instance close method not available');
@@ -210,7 +209,7 @@ export async function processExcelFile(
     if (rows.length > 0) {
       const tableName = createTableName(sheetName);
       const sanitizedColumns = tableColumnMappings[tableName] || [];
-      tableSchemas[tableName] = await generateTableSchema(tableName, rows, sanitizedColumns);
+      tableSchemas[tableName] = await generateTableSchema(tableName, rows as Record<string, unknown>[], sanitizedColumns);
     }
   }
 
@@ -243,7 +242,7 @@ export async function processExcelFile(
     
     const testTablesResult = await testConnection.run("SHOW TABLES");
     const testTables = await testTablesResult.getRows();
-    const testTableNames = testTables.map((row: any) => row[0] as string);
+    const testTableNames = testTables.map((row: unknown[]) => row[0] as string);
     console.log(`📋 Tables in database before upload: ${testTableNames.join(', ')}`);
     
     // Test a simple query on each table
