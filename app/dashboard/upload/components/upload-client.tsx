@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { FileDropzone } from "@/components/FileDropzone";
+import { FileDropzone } from "./FileDropzone";
 import { Button } from "@/components/ui/button";
 import { uploadFileAction } from "@/app/actions/upload-file/uploadFile";
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, RotateCcw, Info } from "lucide-react";
 import { StreamingMessage } from "./AsyncMessageLoader";
-import { useFileMetadata } from "./hooks/useFileMetadata";
+import { useFileMetadata } from "../hooks/useFileMetadata";
 import { FileMetadataDisplay } from "./FileMetadataDisplay";
 
 interface Message {

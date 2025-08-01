@@ -7,7 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { UploadClient } from "../upload/upload-client";
+import { UploadClient } from "../../upload/components/upload-client";
 
 interface UploadModalProps {
   open: boolean;

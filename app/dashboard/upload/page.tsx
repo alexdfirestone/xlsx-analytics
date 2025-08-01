@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { UploadClient } from "./upload-client";
+import { UploadClient } from "./components/upload-client";
 import { isAuthenticated } from "@/utils/auth/getUserInfoServer";
 
 export default async function UploadPage() {
