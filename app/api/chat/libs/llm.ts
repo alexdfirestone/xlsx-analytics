@@ -6,7 +6,7 @@ import { openai, langfuse, createSpan, logEvent } from './langfuse';
 // Model Configuration - Easy to see and change models for each step
 const MODEL_CONFIG = {
   sqlGeneration: {
-    model: 'gpt-4o',
+    model: 'gpt-4.1',
     temperature: 0.1,
   },
   responseGeneration: {
@@ -274,10 +274,13 @@ export class LLMService {
   }
 
   private buildSqlPrompt(messages: ChatMessage[], metadata: DatabaseMetadata): string {
+    // Format schema in a clean, readable way
+    const formattedSchema = this.formatDatabaseSchema(metadata?.table_schemas);
+    
     return `You are a SQL expert. Based on the following database schema and user conversation, generate a SQL query to answer the user's question.
 
 Database Schema:
-${JSON.stringify(metadata?.table_schemas, null, 2)}
+${formattedSchema}
 
 Available Tables:
 ${(metadata?.sheets || []).map((sheet) => `- ${sheet.table} (originally "${sheet.original_name}")`).join('\n')}
@@ -288,6 +291,24 @@ ${messages.map(msg => `${msg.role}: ${msg.content}`).join('\n')}
 IMPORTANT: When referencing tables in your SQL query, you MUST prefix each table name with "source_db." (e.g., "source_db.sheet_sheet1" instead of just "sheet_sheet1").
 
 Generate ONLY a valid SQL SELECT query. Do not include any explanations or markdown formatting. Only use the tables and columns that exist in the schema above.`;
+  }
+
+  private formatDatabaseSchema(tableSchemas?: Record<string, unknown>): string {
+    if (!tableSchemas || Object.keys(tableSchemas).length === 0) {
+      return 'No database schema available.';
+    }
+
+    const formattedTables = Object.entries(tableSchemas).map(([tableName, schema]) => {
+      if (typeof schema === 'string') {
+        // The schema is already formatted as a string, just return it
+        return schema;
+      } else {
+        // Fallback for unexpected schema format
+        return `Table: ${tableName}\nColumns: Schema format not recognized`;
+      }
+    });
+
+    return formattedTables.join('\n\n');
   }
 
   private buildResponsePrompt(sqlQuery: string, rows: unknown[][]): string {
