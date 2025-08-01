@@ -24,7 +24,7 @@ export default function DashboardLayout({
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 h-4" />
             <Breadcrumb>
-              <BreadcrumbList>
+              {/* <BreadcrumbList>
                 <BreadcrumbItem className="hidden md:block">
                   <BreadcrumbLink href="/dashboard">
                     Dashboard
@@ -34,7 +34,7 @@ export default function DashboardLayout({
                 <BreadcrumbItem>
                   <BreadcrumbPage>Analytics</BreadcrumbPage>
                 </BreadcrumbItem>
-              </BreadcrumbList>
+              </BreadcrumbList> */}
             </Breadcrumb>
           </div>
         </header>

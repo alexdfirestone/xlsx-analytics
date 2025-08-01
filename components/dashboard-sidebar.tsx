@@ -14,7 +14,9 @@ import {
   SidebarMenuItem,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarFooter,
 } from "@/components/ui/sidebar"
+import LogoutButton from "@/components/auth/LogoutButton"
 
 const navigationItems = [
   {
@@ -77,6 +79,9 @@ export function DashboardSidebar({ ...props }: React.ComponentProps<typeof Sideb
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <LogoutButton />
+      </SidebarFooter>
     </Sidebar>
   )
 } 

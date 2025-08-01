@@ -39,6 +39,36 @@ export default function LoginPage() {
         }
     }
 
+    const handleLoginAsReviewer = async () => {
+        setEmail("test@example.com")
+        setPassword("ps thank-you-for-your-consideration")
+        
+        // Small delay to ensure state is updated before proceeding
+        setTimeout(async () => {
+            setError("")
+            setIsLoading(true)
+            
+            try {
+                const supabase = createClient()
+                const { error } = await supabase.auth.signInWithPassword({
+                    email: "test@example.com",
+                    password: "ps thank-you-for-your-consideration",
+                })
+                
+                if (error) {
+                    throw new Error(error.message || "Authentication failed")
+                }
+                
+                router.push("/dashboard")
+            } catch (error) {
+                console.error("Login error:", error)
+                setError("Failed to sign in: " + (error as Error).message)
+            } finally {
+                setIsLoading(false)
+            }
+        }, 100)
+    }
+
     // Add function to check if form is valid
     const isFormValid = () => {
         return email.trim() !== "" && password.trim() !== "";
@@ -95,12 +125,22 @@ export default function LoginPage() {
                             )}
                         </Button>
                         
-                        <div className="mt-4 text-center text-sm">
+                        <Button 
+                            type="button" 
+                            variant="outline"
+                            className="w-full mt-2" 
+                            onClick={handleLoginAsReviewer}
+                            disabled={isLoading}
+                        >
+                            {isLoading ? "Signing in..." : "Login as Interviewer"}
+                        </Button>
+
+                        {/* <div className="mt-4 text-center text-sm">
                             Don't have an account?{" "}
                             <a href="/signup" className="text-blue-600 hover:underline">
                                 Sign up
                             </a>
-                        </div>
+                        </div> */}
                     </form>
                 </CardContent>
             </Card>
