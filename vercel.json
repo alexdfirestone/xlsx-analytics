@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "functions": {
+    "app/api/chat/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/delete/route.ts": {
+      "maxDuration": 300
+    }
+  },
+  "env": {
+    "NODE_OPTIONS": "--max-old-space-size=4096"
+  }
+} 
