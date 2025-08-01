@@ -24,4 +24,19 @@ export async function getUserInfo(): Promise<UserInfo | null> {
     console.error('Error getting user info:', error);
     return null;
   }
+}
+
+export async function isAuthenticated(): Promise<boolean> {
+  try {
+    const supabase = await createClient();
+    
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    return !!user;
+  } catch (error) {
+    console.error('Error checking authentication:', error);
+    return false;
+  }
 } 
