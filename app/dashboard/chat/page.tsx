@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import { ResizableChatInterface } from "./ResizableChatInterface";
-import { SuspenseErrorBoundary } from "./ErrorBoundary";
+import { ResizableChatInterface } from "./components/ResizableChatInterface";
+import { SuspenseErrorBoundary } from "./components/ErrorBoundary";
 import { isAuthenticated } from "@/utils/auth/getUserInfoServer";
 
 export default async function ChatPage() {

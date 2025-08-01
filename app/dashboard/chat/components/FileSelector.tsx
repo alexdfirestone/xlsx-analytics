@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileIcon, CheckIcon, RefreshCw, AlertCircle, Plus, Trash2 } from "lucide-react";
-import { useFiles } from "./hooks/useFiles";
+import { useFiles } from "../hooks/useFiles";
 import { UploadModal } from "./UploadModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 

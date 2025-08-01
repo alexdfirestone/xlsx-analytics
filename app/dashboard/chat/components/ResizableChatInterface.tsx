@@ -6,8 +6,8 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import { FileSelector } from "./FileSelector";
-import { ChatClient } from "./ChatClient";
+import { FileSelector } from "../components/FileSelector";
+import { ChatClient } from "../components/ChatClient";
 
 export function ResizableChatInterface() {
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
