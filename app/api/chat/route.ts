@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     setupSpan.end();
 
     // 5. Generate and validate SQL query
-    const sqlQuery = await llmService.generateSqlQuery(body.messages, metadata);
+    const sqlQuery = await llmService.generateSqlQuery(body.messages, metadata, dbManager);
     validateSqlQuery(sqlQuery);
 
     // 6. Execute query and get results
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 7. Create streaming response
-    const stream = await llmService.createResponseStream(sqlQuery, rows, executionTime);
+    const stream = await llmService.createResponseStream(sqlQuery, rows, executionTime, metadata);
 
     // Log successful completion
     logEvent(trace, 'chat-session-success', {

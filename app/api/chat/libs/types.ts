@@ -16,6 +16,13 @@ export interface DuckDBConnection {
   closeSync?: () => void;
 }
 
+export interface DatabaseManager {
+  executeQuery: (query: string) => Promise<unknown[][]>;
+  getTableInfo: () => Promise<{ tables: string[]; schemas: Record<string, Array<{name: string; type: string}>> }>;
+  cleanup: () => void;
+  setTrace: (trace: any) => void;
+}
+
 export interface FileRecord {
   status: string;
   duckdb_path: string;
