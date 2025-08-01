@@ -10,11 +10,13 @@ export default function DashboardPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Only redirect if auth has finished loading AND user is not authenticated
     if (!loading && !isAuthenticated) {
       router.push('/');
     }
   }, [isAuthenticated, loading, router]);
 
+  // Show loading while auth state is being determined
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -23,6 +25,7 @@ export default function DashboardPage() {
     );
   }
 
+  // Only render null if auth has finished loading and user is not authenticated
   if (!isAuthenticated) {
     return null;
   }
