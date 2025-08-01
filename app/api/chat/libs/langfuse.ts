@@ -1,5 +1,6 @@
 import { Langfuse } from 'langfuse';
 import { openai } from '@ai-sdk/openai';
+import type { LangfuseTraceClient } from 'langfuse-core';
 
 // Initialize Langfuse client
 export const langfuse = new Langfuse({
@@ -26,7 +27,7 @@ export function createChatTrace(userId?: string, fileId?: string) {
 }
 
 // Helper function to create spans for different operations
-export function createSpan(trace: any, name: string, metadata?: Record<string, any>) {
+export function createSpan(trace: LangfuseTraceClient, name: string, metadata?: Record<string, unknown>) {
   return trace.span({
     name,
     metadata: {
@@ -37,7 +38,7 @@ export function createSpan(trace: any, name: string, metadata?: Record<string, a
 }
 
 // Helper to log custom events
-export function logEvent(trace: any, name: string, data: Record<string, any>) {
+export function logEvent(trace: LangfuseTraceClient, name: string, data: Record<string, unknown>) {
   trace.event({
     name,
     ...data,

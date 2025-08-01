@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { LangfuseTraceClient } from 'langfuse-core';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
@@ -20,7 +21,7 @@ export interface DatabaseManager {
   executeQuery: (query: string) => Promise<unknown[][]>;
   getTableInfo: () => Promise<{ tables: string[]; schemas: Record<string, Array<{name: string; type: string}>> }>;
   cleanup: () => void;
-  setTrace: (trace: any) => void;
+  setTrace: (trace: LangfuseTraceClient | null) => void;
 }
 
 export interface FileRecord {

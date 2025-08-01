@@ -1,13 +1,14 @@
 import { DuckDBInstance } from '@duckdb/node-api';
 import type { DuckDBConnection } from './types';
 import { logEvent } from './langfuse';
+import type { LangfuseTraceClient } from 'langfuse-core';
 
 export class DatabaseManager {
   private instance: DuckDBInstance | null = null;
   private connection: DuckDBConnection | null = null;
-  private trace: any = null;
+  private trace: LangfuseTraceClient | null = null;
 
-  setTrace(trace: any) {
+  setTrace(trace: LangfuseTraceClient | null) {
     this.trace = trace;
   }
 

@@ -2,7 +2,8 @@ import { streamText, generateObject } from 'ai';
 import { z } from 'zod';
 import type { ChatMessage, DatabaseMetadata, StreamChunk, DatabaseManager } from './types';
 import { sqlQuerySchema } from './types';
-import { openai, langfuse, createSpan, logEvent } from './langfuse';
+import { openai, createSpan, logEvent } from './langfuse';
+import type { LangfuseTraceClient } from 'langfuse-core';
 
 // Model Configuration - Easy to see and change models for each step
 const MODEL_CONFIG = {
@@ -17,10 +18,10 @@ const MODEL_CONFIG = {
 } as const;
 
 export class LLMService {
-  private trace: any;
+  private trace: LangfuseTraceClient | null;
 
-  constructor(trace?: any) {
-    this.trace = trace;
+  constructor(trace?: LangfuseTraceClient | null) {
+    this.trace = trace || null;
   }
   
   async generateSqlQuery(
@@ -62,7 +63,7 @@ export class LLMService {
           }
           
           // Log input to Langfuse
-          if (sqlSpan) {
+          if (sqlSpan && this.trace) {
             logEvent(this.trace, `sql-generation-attempt-${attempt + 1}-start`, {
               messages_count: messages.length,
               last_user_message: messages[messages.length - 1]?.content?.slice(0, 100),
@@ -109,7 +110,7 @@ export class LLMService {
                 sql_query: cleanSqlQuery,
               },
               usage: {
-                total_tokens: Math.ceil(sqlPrompt.length / 4), // Rough estimate
+                total: Math.ceil(sqlPrompt.length / 4), // Rough estimate
               },
               metadata: {
                 duration_ms: duration,
@@ -118,12 +119,14 @@ export class LLMService {
               }
             });
 
-            logEvent(this.trace, `sql-generation-attempt-${attempt + 1}-success`, {
-              sql_query: cleanSqlQuery,
-              duration_ms: duration,
-              query_length: cleanSqlQuery.length,
-              attempt: attempt + 1,
-            });
+            if (this.trace) {
+              logEvent(this.trace, `sql-generation-attempt-${attempt + 1}-success`, {
+                sql_query: cleanSqlQuery,
+                duration_ms: duration,
+                query_length: cleanSqlQuery.length,
+                attempt: attempt + 1,
+              });
+            }
 
             sqlSpan.end();
           }
@@ -163,7 +166,7 @@ export class LLMService {
           
         } catch (error) {
           // Log error to Langfuse
-          if (sqlSpan) {
+          if (sqlSpan && this.trace) {
             logEvent(this.trace, `sql-generation-attempt-${attempt + 1}-error`, {
               error: error instanceof Error ? error.message : 'Unknown error',
               attempt: attempt + 1,
@@ -290,7 +293,7 @@ export class LLMService {
                 response: totalStreamedContent,
               },
               usage: {
-                total_tokens: Math.ceil((responsePrompt.length + totalStreamedContent.length) / 4),
+                total: Math.ceil((responsePrompt.length + totalStreamedContent.length) / 4),
               },
               metadata: {
                 stream_duration_ms: streamDuration,
@@ -300,12 +303,14 @@ export class LLMService {
               }
             });
 
-            logEvent(trace, 'response-generation-success', {
-              response_length: totalStreamedContent.length,
-              stream_duration_ms: streamDuration,
-              chunks_streamed: streamedChunks,
-              total_session_time_ms: executionTime + streamDuration,
-            });
+            if (trace) {
+              logEvent(trace, 'response-generation-success', {
+                response_length: totalStreamedContent.length,
+                stream_duration_ms: streamDuration,
+                chunks_streamed: streamedChunks,
+                total_session_time_ms: executionTime + streamDuration,
+              });
+            }
 
             responseSpan.end();
           }
@@ -326,7 +331,7 @@ export class LLMService {
           controller.close();
         } catch (error) {
           // Log streaming error to Langfuse
-          if (responseSpan) {
+          if (responseSpan && trace) {
             logEvent(trace, 'response-generation-error', {
               error: error instanceof Error ? error.message : 'Unknown error',
               partial_content_length: totalStreamedContent.length,
@@ -534,7 +539,7 @@ Give me the key findings. Be conversational but concise. No fluff, no obvious st
       return responsePrompt;
     } catch (error) {
       // Log error to Langfuse
-      if (promptSpan) {
+      if (promptSpan && this.trace) {
         logEvent(this.trace, 'response-prompt-building-error', {
           error: error instanceof Error ? error.message : 'Unknown error',
         });
@@ -624,7 +629,7 @@ Example output: ["park_name", "visitor_difference"]`;
             column_headers: columnHeaders,
           },
           usage: {
-            total_tokens: Math.ceil(columnAnalysisPrompt.length / 4), // Rough estimate
+            total: Math.ceil(columnAnalysisPrompt.length / 4), // Rough estimate
           },
           metadata: {
             duration_ms: duration,
@@ -639,7 +644,7 @@ Example output: ["park_name", "visitor_difference"]`;
       return columnHeaders;
     } catch (error) {
       // Log error to Langfuse
-      if (columnSpan) {
+      if (columnSpan && this.trace) {
         logEvent(this.trace, 'column-header-extraction-error', {
           error: error instanceof Error ? error.message : 'Unknown error',
         });

@@ -4,16 +4,17 @@ import { downloadFileFromStorage, cleanupTempFiles } from '@/app/actions/upload-
 import type { DatabaseMetadata, FileRecord } from './types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logEvent } from './langfuse';
+import type { LangfuseTraceClient } from 'langfuse-core';
 
 export class FileManager {
-  private trace: any = null;
+  private trace: LangfuseTraceClient | null = null;
 
-  setTrace(trace: any) {
+  setTrace(trace: LangfuseTraceClient | null) {
     this.trace = trace;
   }
   
   async loadMetadata(
-    supabase: SupabaseClient<any, "public", any>, 
+    supabase: SupabaseClient, 
     fileRecord: FileRecord
   ): Promise<DatabaseMetadata> {
     try {
@@ -54,7 +55,7 @@ export class FileManager {
   }
 
   async downloadDatabaseFile(
-    supabase: SupabaseClient<any, "public", any>, 
+    supabase: SupabaseClient, 
     duckdbPath: string
   ): Promise<string> {
     if (this.trace) {
