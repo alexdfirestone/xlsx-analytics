@@ -2,8 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getFileRecord } from '@/app/actions/upload-file/libs/database';
 import { handleApiAuthSession } from '@/utils/auth/setAuthSession';
+import { Langfuse } from 'langfuse';
 
 const BUCKET_NAME = 'uploads';
+
+// Initialize Langfuse client
+const langfuse = new Langfuse({
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  baseUrl: process.env.LANGFUSE_BASEURL || 'https://cloud.langfuse.com',
+});
 
 interface DeleteRequest {
   fileId: string;
@@ -21,16 +29,48 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  
+  // Create trace for the delete operation
+  const trace = langfuse.trace({
+    name: 'file-deletion',
+    metadata: {
+      endpoint: '/api/delete',
+      timestamp: new Date().toISOString(),
+    },
+    tags: ['file-deletion', 'storage-cleanup'],
+  });
+
   try {
     const body = await request.json() as DeleteRequest;
     const { fileId } = body;
 
     if (!fileId) {
+      trace.event({
+        name: 'delete-request-validation-failed',
+        metadata: {
+          error: 'File ID is required',
+        },
+      });
       return NextResponse.json(
         { error: 'File ID is required' },
         { status: 400 }
       );
     }
+
+    // Update trace with file ID
+    trace.update({
+      metadata: {
+        fileId,
+      }
+    });
+
+    trace.event({
+      name: 'delete-request-received',
+      metadata: {
+        file_id: fileId,
+      },
+    });
 
     // Initialize Supabase client and authenticate
     const supabase = await createClient();
@@ -39,11 +79,27 @@ export async function POST(request: NextRequest) {
     // Get file record from database (RLS will handle access control)
     const fileRecord = await getFileRecord(supabase, fileId);
     if (!fileRecord) {
+      trace.event({
+        name: 'delete-file-not-found',
+        metadata: {
+          file_id: fileId,
+        },
+      });
       return NextResponse.json(
         { error: 'File not found or access denied' },
         { status: 404 }
       );
     }
+
+    trace.event({
+      name: 'delete-file-found',
+      metadata: {
+        file_id: fileId,
+        duckdb_path: fileRecord.duckdb_path,
+        status: fileRecord.status,
+        sheets_processed: fileRecord.sheets_processed,
+      },
+    });
 
     // Extract folder path from the duckdb_path (e.g., "tenant123/duckdb/abc123/database.duckdb" -> "tenant123/duckdb/abc123/")
     const folderPath = fileRecord.duckdb_path.substring(0, fileRecord.duckdb_path.lastIndexOf('/') + 1);
@@ -55,7 +111,13 @@ export async function POST(request: NextRequest) {
         .list(folderPath);
 
       if (listError) {
-        console.error('Error listing files in folder:', listError);
+        trace.event({
+          name: 'delete-storage-list-error',
+          metadata: {
+            error: listError.message,
+            folder_path: folderPath,
+          },
+        });
         // Continue with deletion even if we can't list files
       }
 
@@ -70,12 +132,26 @@ export async function POST(request: NextRequest) {
           .remove(filePaths);
 
         if (deleteFilesError) {
-          console.error('Error deleting files from storage:', deleteFilesError);
+          trace.event({
+            name: 'delete-storage-remove-error',
+            metadata: {
+              error: deleteFilesError.message,
+              file_paths: filePaths,
+            },
+          });
           throw new Error('Failed to delete files from storage');
         }
 
         deletedFiles.push(...filePaths);
-        console.log(`Deleted ${filePaths.length} files from storage`);
+        
+        trace.event({
+          name: 'delete-storage-files-removed',
+          metadata: {
+            files_deleted: filePaths.length,
+            file_paths: filePaths,
+            folder_path: folderPath,
+          },
+        });
       }
 
       // Delete the database record (RLS will handle access control)
@@ -85,11 +161,26 @@ export async function POST(request: NextRequest) {
         .eq('file_id', fileId);
 
       if (deleteRecordError) {
-        console.error('Error deleting database record:', deleteRecordError);
+        trace.event({
+          name: 'delete-database-record-error',
+          metadata: {
+            error: deleteRecordError.message,
+            file_id: fileId,
+          },
+        });
         throw new Error('Failed to delete database record');
       }
 
-      console.log(`Successfully deleted file record and storage for file_id: ${fileId}`);
+      const executionTime = Date.now() - startTime;
+      
+      trace.event({
+        name: 'delete-operation-completed',
+        metadata: {
+          file_id: fileId,
+          files_deleted: deletedFiles.length,
+          execution_time_ms: executionTime,
+        },
+      });
 
       const response: DeleteResponse = {
         success: true,
@@ -101,38 +192,84 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(response, { status: 200 });
 
     } catch (storageError) {
-      console.error('Storage deletion error:', storageError);
+      const errorMessage = storageError instanceof Error ? storageError.message : 'Unknown storage error';
+      
+      trace.event({
+        name: 'delete-storage-error',
+        metadata: {
+          error: errorMessage,
+          file_id: fileId,
+          folder_path: folderPath,
+        },
+      });
       
       // If storage deletion fails, we might want to mark the record as "deletion_failed"
       // instead of leaving it in an inconsistent state
       try {
-        await supabase
+        const { error: updateError } = await supabase
           .from('duckdb_files')
-          .update({
-            status: 'deletion_failed',
-            updated_at: new Date().toISOString()
-          })
+          .update({ status: 'deletion_failed' })
           .eq('file_id', fileId);
+
+        if (updateError) {
+          trace.event({
+            name: 'delete-status-update-error',
+            metadata: {
+              error: updateError.message,
+              file_id: fileId,
+            },
+          });
+        } else {
+          trace.event({
+            name: 'delete-status-updated',
+            metadata: {
+              file_id: fileId,
+              new_status: 'deletion_failed',
+            },
+          });
+        }
       } catch (updateError) {
-        console.error('Failed to update status to deletion_failed:', updateError);
+        trace.event({
+          name: 'delete-status-update-exception',
+          metadata: {
+            error: updateError instanceof Error ? updateError.message : 'Unknown error',
+            file_id: fileId,
+          },
+        });
       }
 
-      return NextResponse.json(
-        { error: 'Failed to delete file from storage' },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to delete file and associated data',
+        details: errorMessage
+      }, { status: 500 });
     }
 
   } catch (error) {
-    console.error('Delete API error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const executionTime = Date.now() - startTime;
     
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
+    trace.event({
+      name: 'delete-operation-error',
+      metadata: {
+        error: errorMessage,
+        error_type: error instanceof Error ? error.constructor.name : 'Unknown',
+        execution_time_ms: executionTime,
       },
-      { status: 500 }
-    );
+    });
+    
+    return NextResponse.json({
+      success: false,
+      error: errorMessage
+    }, { status: 500 });
+
+  } finally {
+    // Ensure Langfuse trace is properly closed
+    try {
+      await langfuse.shutdownAsync();
+    } catch (langfuseError) {
+      console.warn('Langfuse shutdown error:', langfuseError);
+    }
   }
 }
 
